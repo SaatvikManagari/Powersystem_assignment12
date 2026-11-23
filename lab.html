@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulation lab · Fault Classifier Lab</title>
+  <meta name="description" content="Fault classification for power transmission networks using superimposed symmetrical components, verified with simulation data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23164e63'/%3E%3Cpath d='M18 4 9 18h6l-2 10 10-15h-6z' fill='%23facc15'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M18 4 9 18h6l-2 10 10-15h-6z" fill="var(--bolt)"/></svg>
+      <div>
+        <div class="brand-title">Fault Classifier Lab</div>
+        <div class="brand-sub">Superimposed sequence-component fault classification</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <a href="index.html" class="home">Classifier</a>
+      <a href="#simulate" data-tab="simulate" role="tab">Simulate</a>
+      <a href="#method" data-tab="method" role="tab">Method</a>
+      <a href="#verify" data-tab="verify" role="tab">Verification</a>
+      <a href="#data" data-tab="data" role="tab">Your data</a>
+    </nav>
+    <button id="themeBtn" class="icon-btn" title="Toggle light/dark theme" aria-label="Toggle theme">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ======================= SIMULATE ======================= -->
+<section id="tab-simulate" class="tab">
+  <div class="intro">
+    <h1>Classify a fault on a 220 kV line</h1>
+    <p>Pick a fault, its location, resistance and inception angle. The simulator solves the sequence networks of the
+      two-source test system, synthesises the currents a relay at bus 2 would record, and the classifier identifies the
+      fault type from those waveforms alone.</p>
+  </div>
+
+  <div class="sim-grid">
+    <aside class="panel controls">
+      <h2>Fault scenario</h2>
+      <label class="field">Fault type
+        <select id="fType"></select>
+      </label>
+      <label class="field">Location from bus 2 <output id="oX"></output>
+        <input type="range" id="fX" min="1" max="99" step="1" value="40">
+      </label>
+      <label class="field">Fault resistance R<sub>f</sub> <output id="oRf"></output>
+        <input type="range" id="fRf" min="0" max="500" step="1" value="10">
+      </label>
+      <label class="field">Inception angle (on V<sub>a</sub>) <output id="oInc"></output>
+        <input type="range" id="fInc" min="0" max="359" step="1" value="30">
+      </label>
+      <label class="field">Pre-fault load angle δ <output id="oDelta"></output>
+        <input type="range" id="fDelta" min="-30" max="30" step="1" value="10">
+      </label>
+      <label class="field">Measurement SNR <output id="oSnr"></output>
+        <input type="range" id="fSnr" min="15" max="60" step="1" value="40">
+      </label>
+      <label class="check"><input type="checkbox" id="fClean"> Noiseless signals</label>
+      <div class="btn-row">
+        <button id="btnRandom" class="btn">Random case</button>
+        <button id="btnExport" class="btn ghost" title="Download this case as CSV (t, ia, ib, ic, va, vb, vc)">Export CSV</button>
+      </div>
+
+      <details class="params">
+        <summary>System parameters</summary>
+        <div class="pgrid">
+          <label>Frequency (Hz)<select id="pF"><option>50</option><option>60</option></select></label>
+          <label>Voltage (kV)<input id="pKV" type="number" value="220" min="1"></label>
+          <label>Line length (km)<input id="pLen" type="number" value="150" min="1"></label>
+          <label>E<sub>1</sub> (pu)<input id="pE1" type="number" value="1.05" step="0.01"></label>
+          <label>R<sub>1</sub> (Ω/km)<input id="pR1" type="number" value="0.03" step="0.005"></label>
+          <label>X<sub>1</sub> (Ω/km)<input id="pX1" type="number" value="0.33" step="0.01"></label>
+          <label>R<sub>0</sub> (Ω/km)<input id="pR0" type="number" value="0.25" step="0.01"></label>
+          <label>X<sub>0</sub> (Ω/km)<input id="pX0" type="number" value="1.10" step="0.01"></label>
+        </div>
+        <p class="hint">Generators: X″ = 0.15 / 0.20 pu, transformers 0.08 pu on 100 MVA. T1 is YNyn, T2 is YNd (blocks G2 from the zero-sequence network).</p>
+      </details>
+    </aside>
+
+    <div class="results">
+      <div id="verdict" class="verdict"></div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Test system</h3><span class="muted small">relay R at bus 2 looks into the line</span></div>
+        <svg id="sld" viewBox="0 0 760 150" class="sld" role="img" aria-label="Single-line diagram of the test system"></svg>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Relay currents (kA)</h3><span class="legend-note">shaded: DFT windows used by the classifier</span></div>
+        <canvas id="cvI" class="chart"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Bus 2 voltages (kV)</h3></div>
+        <canvas id="cvV" class="chart"></canvas>
+      </div>
+
+      <div class="two">
+        <div class="panel">
+          <div class="panel-head"><h3>Phase-selection wheel</h3><span class="muted small">θ = ∠(ΔI₂ / ΔI₁)</span></div>
+          <canvas id="cvWheel" class="chart square"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Superimposed phasors</h3><span class="muted small">ΔI = I<sub>fault</sub> − I<sub>pre</sub></span></div>
+          <canvas id="cvPh" class="chart square"></canvas>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Decision features and phasors</h3></div>
+        <div id="featTable" class="table-wrap"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= METHOD ======================= -->
+<section id="tab-method" class="tab" hidden>
+  <article class="prose">
+    <h1>The method</h1>
+    <p class="lead">The technique classifies all eleven conditions (no fault, AG, BG, CG, AB, BC, CA, ABG, BCG, CAG, ABC)
+      from one cycle of the three phase currents measured at one line end. It relies only on classical fault-analysis theory:
+      symmetrical components, the sequence-network connections of each fault, and the Thevenin / pure-fault superposition.</p>
+
+    <h2>1 · Test system and simulation</h2>
+    <p>The test system is a two-source line: G<sub>1</sub> – T<sub>1</sub> (YNyn) – line – T<sub>2</sub> (YNd) – G<sub>2</sub>.
+      A fault at a fraction <i>x</i> of the line from bus 2 splits each sequence network into a left and a right part. The Thevenin impedance at the fault in sequence <i>s</i> is</p>
+    <div class="eq">$$Z_{s,th}=\frac{Z_{s,\text{left}}\,Z_{s,\text{right}}}{Z_{s,\text{left}}+Z_{s,\text{right}}},\qquad Z_{0,\text{right}}=(1-x)Z_{0L}+Z_{0T2}$$</div>
+    <p>The zero-sequence right side stops at T<sub>2</sub>: its delta winding shorts zero-sequence current to the reference and isolates G<sub>2</sub>.
+      Instead of a separate formula per fault, every shunt fault is written as a phase-domain fault admittance matrix
+      <i>Y<sub>f</sub></i> (R<sub>f</sub> to ground, between phases, or two phases joined then R<sub>f</sub> to ground). The Thevenin equation becomes</p>
+    <div class="eq">$$\big(\mathbf I + Z^{abc}_{th}Y_f\big)\,V^{abc}_F = V^{abc}_{F,\text{pre}},\qquad Z^{abc}_{th}=T\,\mathrm{diag}(Z_0,Z_1,Z_2)\,T^{-1},\qquad I^{abc}_f = Y_f V^{abc}_F$$</div>
+    <p>The <b>Verification</b> tab checks this solver against the closed-form analytical results (for example <span class="nowrap">\(I_{a1}=E/(Z_1+Z_2+Z_0+3Z_f)\)</span> for LG) and against a worked Z-bus example.</p>
+    <p>The relay current is the pre-fault load current plus the pure-fault (superimposed) current. That current comes from exciting the dead network at F with the fault current, split between the two sides:</p>
+    <div class="eq">$$\Delta I_{s,\text{relay}} = I_{s,f}\,\frac{Z_{s,\text{right}}}{Z_{s,\text{left}}+Z_{s,\text{right}}},\qquad \Delta V_{s,\text{bus2}} = -Z_{s,\text{src}}\,\Delta I_{s,\text{relay}}$$</div>
+    <p>Waveforms are sampled at 64 samples/cycle. The fault current includes the decaying DC offset, \(i=i_s+i_t\), with
+      \(i_t(t)=-[i_s(t_0)-i_{\text{pre}}(t_0)]\,e^{-(R/L)(t-t_0)}\), so the current stays continuous at the inception instant. White Gaussian noise at a chosen SNR is added to every channel.</p>
+
+    <h2>2 · Classification algorithm</h2>
+    <ol class="steps">
+      <li><b>Detection.</b> One-cycle superimposed sample \(d[k]=|i[k]-i[k-N]|\). Fault declared when \(d\) exceeds
+        \(5\times\) its pre-fault rms (or 5 % of the pre-fault peak) on any phase for 4 consecutive samples.</li>
+      <li><b>Phasors.</b> Full-cycle DFT on a pre-fault window (ending ¼ cycle before detection) and on the first full cycle after detection.</li>
+      <li><b>Superimposed currents.</b> \(\Delta I_{abc}=I_{abc}^{\text{fault}}-I_{abc}^{\text{pre}}\). This removes the load current. It is exactly the pure-fault network.</li>
+      <li><b>Sequence components.</b> \([\Delta I_0\;\Delta I_1\;\Delta I_2]^T=T^{-1}\Delta I_{abc}\).</li>
+      <li><b>Decision.</b> Three features:
+        <ul>
+          <li>\(r_2=|\Delta I_2|/|\Delta I_1|<0.2\) → balanced: <b>ABC</b>.</li>
+          <li>\(r_0=|\Delta I_0|/|\Delta I_1|>\max(0.01,\;4\sigma_0/|\Delta I_1|)\) → ground involved. \(\sigma_0\) is the noise level of the zero-sequence phasor, estimated from the pre-fault data.</li>
+          <li>\(\theta=\angle(\Delta I_2/\Delta I_1)\) picks the faulted phases from six 60° sectors.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h2>3 · Why the angle θ identifies the phases</h2>
+    <p>With phase <i>a</i> as reference, the fault boundary conditions fix the ratio \(I_{a2}/I_{a1}\) at the fault.</p>
+    <ul>
+      <li><b>AG:</b> sequence networks in series, so \(I_{a2}=I_{a1}\) and θ = 0°.</li>
+      <li><b>BG:</b> the same relation holds in phase-<i>b</i> reference. Rotating back gives \(I_{a1}=\alpha I_{b1}\) and \(I_{a2}=\alpha^2 I_{b1}\), so θ = +120°.</li>
+      <li><b>BC (LL):</b> positive and negative networks in parallel, so \(I_{a2}=-I_{a1}\) and θ = 180°.</li>
+      <li><b>BCG:</b> \(I_{a2}=-I_{a1}\,(Z_0+3Z_f)/(Z_2+Z_0+3Z_f)\), so θ ≈ 180°.</li>
+    </ul>
+    <p>Positive and negative sequence networks have almost identical impedances, so the relay sees essentially the same ratio as the fault point.</p>
+    <div class="table-wrap">
+      <table class="tbl center">
+        <thead><tr><th>θ centre</th><th>0°</th><th>+60°</th><th>+120°</th><th>180°</th><th>−120°</th><th>−60°</th></tr></thead>
+        <tbody>
+          <tr><th>ground (r₀ high)</th><td>AG</td><td>ABG</td><td>BG</td><td>BCG</td><td>CG</td><td>CAG</td></tr>
+          <tr><th>no ground</th><td>–</td><td>AB</td><td>–</td><td>BC</td><td>–</td><td>CA</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Each class owns a ±30° sector, so the method tolerates large angle errors from noise, fault resistance, and the DC offset.</p>
+
+    <h2>4 · Known limits</h2>
+    <ul>
+      <li>ABC and ABCG look the same to this method because both have no zero-sequence current. They are reported as one class.</li>
+      <li>LLG faults with very large R<sub>f</sub> (above about 500 Ω on this 220 kV system) carry almost no zero-sequence current and start being read as LL.</li>
+      <li>Series (open-conductor) faults, evolving faults and CT saturation are not modelled.</li>
+    </ul>
+
+    <h2>References</h2>
+    <ul class="refs">
+      <li>J. J. Grainger and W. D. Stevenson, <i>Power System Analysis</i>, McGraw-Hill.</li>
+      <li>D. P. Kothari and I. J. Nagrath, <i>Modern Power System Analysis</i>, McGraw-Hill (examples used in the verification tab).</li>
+      <li>C. L. Fortescue, “Method of symmetrical co-ordinates applied to the solution of polyphase networks,” <i>AIEE Trans.</i>, 1918.</li>
+    </ul>
+  </article>
+</section>
+
+<!-- ======================= VERIFY ======================= -->
+<section id="tab-verify" class="tab" hidden>
+  <div class="intro">
+    <h1>Verification with simulation data</h1>
+    <p>The simulator that generates the fault data is checked against closed-form hand calculations.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Simulator validation</h2></div>
+    <div id="valTable" class="table-wrap"></div>
+    <div id="valZbus" class="table-wrap"></div>
+  </div>
+</section>
+
+<!-- ======================= YOUR DATA ======================= -->
+<section id="tab-data" class="tab" hidden>
+  <div class="intro">
+    <h1>Classify your own recording</h1>
+    <p>Upload a CSV exported from MATLAB/Simulink, PSCAD, EMTP or a relay (COMTRADE converted to CSV). Columns:
+      <code>t, ia, ib, ic</code> (voltages optional). The file needs at least 2 cycles of pre-fault data, and any
+      sampling rate with ≥ 16 samples per cycle works. Use <b>Export CSV</b> on the Simulate tab to get a sample file.</p>
+  </div>
+  <div class="panel">
+    <div class="upload-row">
+      <label class="drop" id="drop">
+        <input type="file" id="csvFile" accept=".csv,.txt">
+        <span><b>Choose a CSV file</b> or drop it here</span>
+      </label>
+      <label class="field inline">System frequency
+        <select id="dataF"><option value="50">50 Hz</option><option value="60">60 Hz</option></select>
+      </label>
+    </div>
+    <div id="dataMsg" class="muted"></div>
+  </div>
+  <div id="dataOut" hidden>
+    <div id="dataVerdict" class="verdict"></div>
+    <div class="panel"><div class="panel-head"><h3>Uploaded currents</h3></div><canvas id="dataCv" class="chart"></canvas></div>
+    <div class="two">
+      <div class="panel"><div class="panel-head"><h3>Phase-selection wheel</h3></div><canvas id="dataWheel" class="chart square"></canvas></div>
+      <div class="panel"><div class="panel-head"><h3>Features</h3></div><div id="dataFeat" class="table-wrap"></div></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="wrap foot">
+  <span>Everything runs in your browser. No data leaves the page.</span>
+  <span>Based on symmetrical components (Fortescue, 1918)</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" defer></script>
+<script src="js/complex.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/classifier.js"></script>
+<script src="js/plots.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

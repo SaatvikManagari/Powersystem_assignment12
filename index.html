@@ -1,141 +1,181 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Power Network Fault Classifier</title>
-<style>
-:root{--bg:#f4f7fb;--card:#fff;--ink:#142238;--muted:#607086;--line:#dce4ef;--blue:#185adb;--teal:#087f8c;--red:#b42318;--green:#137547;--shadow:0 8px 28px rgba(28,48,78,.08)}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
-header{background:linear-gradient(120deg,#102d59,#185adb);color:white;padding:38px 22px 34px}header .wrap,main{max-width:1120px;margin:auto}header h1{font-size:clamp(27px,4vw,40px);line-height:1.15;margin:0 0 10px}header p{max-width:820px;margin:0;color:#e0eaff}
-main{padding:24px 18px 60px}.notice{background:#fff8e7;border:1px solid #f1d28a;padding:13px 16px;border-radius:12px;color:#674b12;margin-bottom:20px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);margin-bottom:18px}
-.card h2{font-size:20px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 16px;font-size:13px}
-table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600;font-size:12px}
-input{width:100%;min-width:0;padding:9px 10px;border:1px solid #cbd6e4;border-radius:8px;font:inherit;color:var(--ink);background:#fff}
-input:focus{outline:2px solid #b8cdfd;border-color:var(--blue)}.small{font-size:12px;color:var(--muted)}
-.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.btn{border:0;border-radius:9px;padding:11px 17px;background:var(--blue);color:white;font-weight:650;cursor:pointer}.btn.secondary{background:#e9eff8;color:#18345f}.btn:hover{filter:brightness(.96)}
-.resultgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.result{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fbfdff}.result h3{margin:0 0 5px;font-size:17px}.verdict{font-size:22px;font-weight:750;color:var(--blue);margin:8px 0}.pill{display:inline-block;padding:3px 9px;border-radius:30px;background:#e8f0ff;color:#194da7;font-size:12px;font-weight:700}.metric{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding:6px 0}.metric:last-child{border:0}.good{color:var(--green)}.warn{color:#9a6700}.bad{color:var(--red)}
-.explain{background:#f6f9fd;border-radius:10px;padding:12px;margin-top:12px;font-size:13px;color:#40536c}
-footer{color:var(--muted);font-size:12px;text-align:center;padding:20px}
-@media(max-width:760px){.grid,.resultgrid{grid-template-columns:1fr}.card{padding:16px}table{font-size:12px}th,td{padding:7px 3px}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Power Network Fault Classifier</title>
+  <meta name="description" content="Fault classification for power transmission networks using superimposed symmetrical components, verified with simulation data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23164e63'/%3E%3Cpath d='M18 4 9 18h6l-2 10 10-15h-6z' fill='%23facc15'/%3E%3C/svg%3E">
 </head>
 <body>
-<header><div class="wrap">
-<h1>Power Network Fault Classifier</h1>
-<p>Enter three-phase RMS phasor measurements to classify normal operation, short-circuit faults and open-conductor faults using two independent approaches: phase-quantity signatures and symmetrical components.</p>
-</div></header>
-<main>
-<div class="notice"><b>Important:</b> This is an educational, simulation-oriented classifier. It uses transparent heuristic rules, not a certified protection relay. Enter measurements from one measurement point, in consistent units, and use phase-to-neutral voltage phasors. Results depend on thresholds and network grounding.</div>
-<section class="card">
-<h2>1. Enter measurements</h2>
-<p class="sub">Use RMS magnitudes and fundamental-frequency phase angles. Angles are in degrees. For a balanced ABC system, a typical angle pattern is 0°, −120°, +120°.</p>
-<div class="grid">
-<div>
-<h3>Voltage phasors</h3>
-<table><thead><tr><th>Phase</th><th>Magnitude (V)</th><th>Angle (°)</th></tr></thead><tbody>
-<tr><td>Va</td><td><input id="vA" type="number" step="any" placeholder="e.g. 230"></td><td><input id="vaA" type="number" step="any" placeholder="0"></td></tr>
-<tr><td>Vb</td><td><input id="vB" type="number" step="any" placeholder="230"></td><td><input id="vaB" type="number" step="any" placeholder="-120"></td></tr>
-<tr><td>Vc</td><td><input id="vC" type="number" step="any" placeholder="230"></td><td><input id="vaC" type="number" step="any" placeholder="120"></td></tr>
-</tbody></table>
-</div>
-<div>
-<h3>Current phasors</h3>
-<table><thead><tr><th>Phase</th><th>Magnitude (A)</th><th>Angle (°)</th></tr></thead><tbody>
-<tr><td>Ia</td><td><input id="iA" type="number" step="any" placeholder="e.g. 10"></td><td><input id="iaA" type="number" step="any" placeholder="-30"></td></tr>
-<tr><td>Ib</td><td><input id="iB" type="number" step="any" placeholder="10"></td><td><input id="iaB" type="number" step="any" placeholder="-150"></td></tr>
-<tr><td>Ic</td><td><input id="iC" type="number" step="any" placeholder="10"></td><td><input id="iaC" type="number" step="any" placeholder="90"></td></tr>
-</tbody></table>
-</div>
-</div>
-<div class="grid" style="margin-top:16px">
-<div><label><b>Nominal phase voltage (V RMS)</b></label><input id="nomV" type="number" value="230" min="0.001" step="any"><div class="small">Use rated phase-to-neutral voltage.</div></div>
-<div><label><b>Nominal phase current (A RMS)</b></label><input id="nomI" type="number" value="10" min="0.001" step="any"><div class="small">Use pre-fault or rated phase current.</div></div>
-</div>
-<div class="controls">
-<button class="btn" onclick="classify()">Classify fault</button>
-<button class="btn secondary" onclick="loadExample('normal')">Load normal example</button>
-<button class="btn secondary" onclick="loadExample('ag')">Load A-G example</button>
-<button class="btn secondary" onclick="clearAll()">Clear</button>
-</div>
-</section>
-<section id="results" style="display:none">
-<div class="resultgrid">
-<div class="card result"><span class="pill">Approach 1</span><h2>Phase-quantity signature method</h2><p class="sub">Uses phase voltage sag, current rise and phase imbalance.</p><div id="r1"></div></div>
-<div class="card result"><span class="pill">Approach 2</span><h2>Symmetrical-component method</h2><p class="sub">Transforms measured phasors into zero, positive and negative sequences.</p><div id="r2"></div></div>
-</div>
-<div class="card"><h2>Sequence-component calculations</h2><p class="sub">Computed directly from the user-entered complex phasors.</p><div id="seq"></div></div>
-<div class="card"><h2>Interpretation and limitations</h2><div id="notes" class="explain"></div></div>
-</section>
-<section class="card">
-<h2>2. What the two approaches do</h2>
-<div class="grid">
-<div><b>Approach 1 — phase signatures</b><p class="sub">Compares each phase voltage/current magnitude with nominal values. It looks for current surges, voltage depressions, phase imbalance and open-phase current loss. It is intuitive and easy to explain, but may confuse faults with heavy loading or voltage disturbances.</p></div>
-<div><b>Approach 2 — symmetrical components</b><p class="sub">Calculates I₀, I₁, I₂ and V₀, V₁, V₂ using Fortescue transformation. Ground faults tend to produce zero-sequence quantities; line-to-line faults produce negative sequence without zero sequence; ideal balanced three-phase faults remain predominantly positive sequence.</p></div>
-</div>
-</section>
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M18 4 9 18h6l-2 10 10-15h-6z" fill="var(--bolt)"/></svg>
+      <div>
+        <div class="brand-title">Fault Classifier Lab</div>
+        <div class="brand-sub">Power network fault classification · Symmetrical components</div>
+      </div>
+    </div>
+    <nav class="tabs">
+      <a href="index.html" class="active">Classifier</a>
+      <a href="lab.html#simulate">Simulate</a>
+      <a href="lab.html#method">Method</a>
+      <a href="lab.html#verify">Verification</a>
+      <a href="lab.html#data">Your data</a>
+    </nav>
+    <button id="themeBtn" class="icon-btn" title="Toggle light/dark theme" aria-label="Toggle theme">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="intro">
+    <h1>Power network fault classifier</h1>
+    <p>Answer a few questions, one at a time, using values from your relay, meter or simulation. At the end you get the fault type, the faulted phases and the reasoning behind it. For waveform simulation, the method and your own CSV data, use the other tabs.</p>
+  </div>
+  <div id="app" class="wizard"></div>
 </main>
-<footer>Power Systems • Educational project demonstrator • GitHub Pages compatible • No data is uploaded or stored</footer>
+
+<footer class="wrap foot">
+  <span>Everything runs in your browser. No data leaves the page.</span>
+  <span>Based on symmetrical components (Fortescue, 1918)</span>
+</footer>
+
 <script>
-const $ = id => document.getElementById(id);
-const phases=['A','B','C'];
-function cplx(m,a){let r=a*Math.PI/180;return {re:m*Math.cos(r),im:m*Math.sin(r)}}
-function add(a,b){return {re:a.re+b.re,im:a.im+b.im}}
-function mul(a,b){return {re:a.re*b.re-a.im*b.im,im:a.re*b.im+a.im*b.re}}
-function scale(a,k){return {re:a.re*k,im:a.im*k}}
-function mag(a){return Math.hypot(a.re,a.im)}
-function ang(a){return Math.atan2(a.im,a.re)*180/Math.PI}
-const alpha={re:Math.cos(2*Math.PI/3),im:Math.sin(2*Math.PI/3)}, alpha2={re:Math.cos(4*Math.PI/3),im:Math.sin(4*Math.PI/3)};
-function seq(x){let s0=scale(add(add(x[0],x[1]),x[2]),1/3);let s1=scale(add(add(x[0],mul(alpha,x[1])),mul(alpha2,x[2])),1/3);let s2=scale(add(add(x[0],mul(alpha2,x[1])),mul(alpha,x[2])),1/3);return [s0,s1,s2]}
-function read(prefix){return phases.map(p=>{let m=Number($(prefix+p).value),a=Number($(prefix.toLowerCase()+'a'+p).value);if(!Number.isFinite(m)||!Number.isFinite(a)||m<0)throw Error('Fill all six phasor magnitude and angle fields with valid numbers.');return cplx(m,a)})}
-function pct(x){return (100*x).toFixed(1)+'%'}
-function classify(){
- try{
- const V=read('v'), I=read('i'), nomV=Number($('nomV').value),nomI=Number($('nomI').value);
- if(!(nomV>0&&nomI>0))throw Error('Nominal voltage and current must be greater than zero.');
- const vm=V.map(mag), im=I.map(mag), vs=vm.map(x=>x/nomV), is=im.map(x=>x/nomI);
- const [v0,v1,v2]=seq(V),[i0,i1,i2]=seq(I);
- const zr=mag(i0)/(mag(i1)+1e-9), nr=mag(i2)/(mag(i1)+1e-9), vzr=mag(v0)/(mag(v1)+1e-9),vnr=mag(v2)/(mag(v1)+1e-9);
- const currentRise=is.map(x=>x>1.8), voltageSag=vs.map(x=>x<0.75), open=is.map(x=>x<0.12);
- const nRise=currentRise.filter(Boolean).length, nSag=voltageSag.filter(Boolean).length, nOpen=open.filter(Boolean).length;
- const spread=(a)=>{let avg=a.reduce((x,y)=>x+y,0)/3;return avg?Math.max(...a.map(x=>Math.abs(x-avg)))/avg:0};
- const currentUnbal=spread(im), voltageUnbal=spread(vm);
- // Approach 1: deliberately transparent signature rules.
- let c1='Inconclusive / abnormal condition', d1='The entered magnitudes do not match a strong predefined fault signature.';
- if(nOpen===1){c1=phases[open.indexOf(true)]+'-phase open conductor';d1='One phase current is near zero compared with the nominal current.'}
- else if(nRise===3 && currentUnbal<0.25){c1='Three-phase short-circuit (LLL / LLLG suspected)';d1='All three phase currents are elevated and approximately balanced.'}
- else if(nRise===2 && nSag>=2){let ix=phases.filter((p,k)=>currentRise[k]);c1=ix.join('-')+(nOpen?'':'')+' two-phase fault (LL / LLG candidate)';d1='Two phase currents are elevated with voltage depression; ground involvement needs sequence analysis.'}
- else if(nRise===1){let p=phases[currentRise.indexOf(true)];c1=p+'-phase-to-ground or phase fault candidate';d1='One phase current is strongly elevated. Voltage and sequence behaviour are used to refine the interpretation.'}
- else if(currentUnbal>0.25||voltageUnbal>0.15){c1='Unbalanced / possible series or shunt fault';d1='Phase quantities are materially unbalanced, but the signature is not unique.'}
- else if(nRise===0&&currentUnbal<0.12&&voltageUnbal<0.12){c1='Normal / near-balanced operation';d1='No strong current surge or phase imbalance was detected.'}
- // Approach 2
- let c2='Inconclusive / abnormal condition',d2='Sequence ratios do not uniquely identify a standard fault class.';
- if(nr<0.08 && zr<0.08 && vnr<0.10 && vzr<0.10){c2=(nRise===3?'Three-phase symmetrical fault candidate':'Normal / positive-sequence dominated');d2='Negative- and zero-sequence components are small relative to positive sequence.'}
- else if(zr<0.08 && nr>0.12){c2='Line-to-line (LL) fault candidate';d2='Negative sequence is present while zero-sequence current is small.'}
- else if(zr>0.12 && nr>0.12){c2='Ground-involved unsymmetrical fault (LG / LLG candidate)';d2='Both negative- and zero-sequence currents are significant. Phase signatures are needed to distinguish LG from LLG.'}
- else if(zr>0.12 && nr<0.08){c2='Ground-related fault / unbalance candidate';d2='Zero-sequence current is significant; check grounding, measurement location and fault type.'}
- else if(nOpen>0||currentUnbal>0.25){c2='Possible open-conductor / unbalanced condition';d2='Sequence imbalance is present; series faults require voltage/current boundary measurements for reliable identification.'}
- const r1=`<div class="verdict">${c1}</div><div>${d1}</div><div class="metric"><span>Elevated-current phases</span><b>${phases.filter((p,k)=>currentRise[k]).join(', ')||'None'}</b></div><div class="metric"><span>Voltage-sag phases</span><b>${phases.filter((p,k)=>voltageSag[k]).join(', ')||'None'}</b></div><div class="metric"><span>Current imbalance</span><b>${pct(currentUnbal)}</b></div><div class="metric"><span>Voltage imbalance</span><b>${pct(voltageUnbal)}</b></div>`;
- const r2=`<div class="verdict">${c2}</div><div>${d2}</div><div class="metric"><span>Negative / positive current (I₂/I₁)</span><b>${nr.toFixed(3)}</b></div><div class="metric"><span>Zero / positive current (I₀/I₁)</span><b>${zr.toFixed(3)}</b></div><div class="metric"><span>Negative / positive voltage (V₂/V₁)</span><b>${vnr.toFixed(3)}</b></div><div class="metric"><span>Zero / positive voltage (V₀/V₁)</span><b>${vzr.toFixed(3)}</b></div>`;
- $('r1').innerHTML=r1;$('r2').innerHTML=r2;
- const fmt=x=>`${mag(x).toFixed(3)} ∠ ${ang(x).toFixed(1)}°`;
- $('seq').innerHTML='<table><thead><tr><th>Sequence</th><th>Voltage phasor</th><th>Current phasor</th></tr></thead><tbody>'+['Zero (0)','Positive (1)','Negative (2)'].map((n,k)=>`<tr><td>${n}</td><td>${fmt([v0,v1,v2][k])}</td><td>${fmt([i0,i1,i2][k])}</td></tr>`).join('')+'</tbody></table>';
- $('notes').innerHTML=`<b>How to read the result:</b> Approach 1 uses magnitude thresholds (current > 1.8 × nominal; voltage < 0.75 × nominal; open phase current < 0.12 × nominal). Approach 2 uses sequence ratios as screening thresholds. These are configurable starting heuristics, not universal protection settings. The two outputs may differ because they use different evidence. For a defensible study, calibrate thresholds using your simulated network, fault resistance, fault location, loading and grounding arrangement. A single set of phasors may not uniquely distinguish LG from LLG or LLL from LLLG.`;
- $('results').style.display='block';$('results').scrollIntoView({behavior:'smooth'});
- }catch(e){alert(e.message)}
+const $=s=>document.querySelector(s), PH=['A','B','C'], CV=['--phA','--phB','--phC'];
+const blank=()=>({Vref:'',Iload:'',k:'1.5',V:[{m:'',a:'0'},{m:'',a:'-120'},{m:'',a:'120'}],I:[{m:'',a:''},{m:'',a:''},{m:'',a:''}]});
+let S=blank();
+const STEPS=[
+ {t:'Normal operating values',h:'Measured before the fault, or the rated values of the line.',f:[
+  {k:'Vref',l:'Phase voltage, rms (V)',min:0.0001},{k:'Iload',l:'Load current per phase, rms (A)',min:0.0001},{k:'k',l:'Fault pickup (× load current)',min:1.1,opt:1}]},
+ ...[0,1,2].map(i=>({t:`Voltage, phase ${PH[i]}`,h:i?'Measured during the fault. Angle is relative to phase A.':'Measured during the fault. Use 0° for phase A as the angle reference.',f:[{k:`V${i}.m`,l:'Magnitude, rms (V)',min:0},{k:`V${i}.a`,l:'Angle (°)',ang:1}],ph:i})),
+ ...[0,1,2].map(i=>({t:`Current, phase ${PH[i]}`,h:'Measured during the fault. Angle is relative to the phase A voltage.',f:[{k:`I${i}.m`,l:'Magnitude, rms (A)',min:0},{k:`I${i}.a`,l:'Angle (°)',ang:1}],ph:i}))
+];
+let step=0, view='wizard';
+const get=k=>{const[p,q]=k.split('.');return q?S[p[0]=='V'?'V':'I'][+p[1]][q]:S[p]};
+const set=(k,v)=>{const[p,q]=k.split('.');if(q)S[p[0]=='V'?'V':'I'][+p[1]][q]=v;else S[p]=v};
+
+function render(){
+  const app=$('#app');
+  if(view==='result')return renderResult(app);
+  const st=STEPS[step];
+  const dot=st.ph!==undefined?`<span class="dot" style="background:var(${CV[st.ph]})"></span>`:'';
+  app.innerHTML=`<section class="panel">
+   <div class="prog">${STEPS.map((_,i)=>`<i class="${i<=step?'on':''}"></i>`).join('')}</div>
+   <div class="count">Question ${step+1} of ${STEPS.length}</div>
+   <p class="q">${dot}${st.t}</p><p class="help">${st.h}</p>
+   <div class="fields">${st.f.map((f,i)=>`<label class="field">${f.l}${f.opt?' (optional)':''}<input id="f${i}" type="number" step="any" inputmode="decimal" value="${get(f.k)}"></label>`).join('')}</div>
+   <div class="err" id="err" role="alert"></div>
+   <div class="nav-row"><button class="btn ghost" id="back" ${step?'':'disabled'}>Back</button><button class="btn" id="next">${step===STEPS.length-1?'Classify fault':'Next'}</button></div>
+   ${step===0?`<div class="ex"><label class="field">Or try an example fault<select id="exs">${TYPES.map(t=>`<option>${t}</option>`).join('')}</select></label><button class="btn ghost" id="exb">Load example</button></div>`:''}
+  </section>`;
+  const first=$('#f0'); if(first)first.focus();
+  $('#next').onclick=next; $('#back').onclick=()=>{if(step){save(true);step--;render();}};
+  document.querySelectorAll('input').forEach(el=>el.onkeydown=e=>{if(e.key==='Enter')next();});
+  if($('#exb'))$('#exb').onclick=()=>{example($('#exs').value);view='result';render();};
 }
-function set(prefix,p,m,a){$(prefix+p).value=m;$(prefix.toLowerCase()+'a'+p).value=a}
-function loadExample(type){
- if(type==='normal'){
- set('v','A',230,0);set('v','B',230,-120);set('v','C',230,120);
- set('i','A',10,-30);set('i','B',10,-150);set('i','C',10,90);
- }else{
- // Illustrative unbalanced A-G-like phasor snapshot; not generated from a particular network.
- set('v','A',85,-15);set('v','B',225,-120);set('v','C',220,120);
- set('i','A',42,-55);set('i','B',12,-145);set('i','C',11,95);
- }
+function save(soft){
+  const st=STEPS[step]; let bad=null;
+  st.f.forEach((f,i)=>{const el=$('#f'+i); el.classList.remove('bad'); const v=el.value.trim(); set(f.k,v);
+    if(f.opt&&v==='')return;
+    const n=Number(v);
+    if(!soft&&!bad){ if(v===''||isNaN(n)) bad=[el,'Enter a number for '+f.l.toLowerCase()+'.']; else if(f.min!==undefined&&!f.ang&&n<f.min) bad=[el,f.l+' must be '+(f.min>0?'greater than 0':'0 or more')+'.']; }});
+  if(bad){bad[0].classList.add('bad');bad[0].focus();$('#err').textContent=bad[1];return false;}
+  return true;
 }
-function clearAll(){document.querySelectorAll('input').forEach(x=>{if(x.id==='nomV')x.value=230;else if(x.id==='nomI')x.value=10;else x.value=''});$('results').style.display='none'}
+function next(){
+  if(!save(false))return;
+  if(step<STEPS.length-1){step++;render();}else{view='result';render();}
+}
+
+/* analysis */
+const pol=(m,a)=>[m*Math.cos(a*Math.PI/180),m*Math.sin(a*Math.PI/180)];
+const cm=(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]], ca=(...x)=>x.reduce((p,q)=>[p[0]+q[0],p[1]+q[1]]);
+const mag=c=>Math.hypot(c[0],c[1]), A1=[-.5,Math.sqrt(3)/2], A2=[-.5,-Math.sqrt(3)/2];
+function analyse(S){
+  const Vm=S.V.map(p=>+p.m), Im=S.I.map(p=>+p.m), Ip=S.I.map(p=>pol(+p.m,+p.a));
+  const Vref=+S.Vref, base=+S.Iload, kk=+S.k||1.5, Imax=Math.max(...Im), vpu=Vm.map(v=>v/Vref), sag=vpu.map(v=>v<0.85);
+  const over=Imax>kk*base, anySag=sag.some(Boolean);
+  const I0=mag(ca(...Ip))/3, I1=mag(ca(Ip[0],cm(A1,Ip[1]),cm(A2,Ip[2])))/3, I2=mag(ca(Ip[0],cm(A2,Ip[1]),cm(A1,Ip[2])))/3;
+  const r={Vm,Im,vpu,I0x3:I0*3,I1,I2,Imax,why:[]};
+  r.why.push(`Largest phase current is ${Imax.toFixed(1)} A against a normal load of ${base} A (pickup at ${kk}× = ${(kk*base).toFixed(1)} A).`);
+  r.why.push(`Phase voltages are ${vpu.map((v,i)=>PH[i]+' '+v.toFixed(2)).join(', ')} pu of normal.`);
+  if(!over&&!anySag){r.type='No fault';r.kind='Normal operation';r.phases=[];r.ground=false;r.why.push('There is no overcurrent and no voltage sag, so the system looks healthy.');return r;}
+  let fp=[0,1,2].filter(i=>Im[i]>0.5*Imax&&(over?Im[i]>kk*base:true));
+  if(!fp.length||!over)fp=[0,1,2].filter(i=>sag[i]);
+  if(!fp.length)fp=[0,1,2].filter(i=>Im[i]===Imax);
+  r.ground=r.I0x3>0.2*Imax||fp.length===1;
+  r.phases=fp.map(i=>PH[i]);
+  r.why.push(`Faulted phase${fp.length>1?'s':''} ${r.phases.join(', ')}: ${fp.length>1?'they carry':'it carries'} more than half of the largest phase current and exceed the pickup.`);
+  r.why.push(`Residual current 3·I0 is ${r.I0x3.toFixed(1)} A (${(100*r.I0x3/Imax).toFixed(0)}% of the largest phase current), so ${r.ground?'earth is involved':'there is no sign of an earth path'}.`);
+  r.why.push(`Positive-sequence I1 is ${I1.toFixed(1)} A and negative-sequence I2 is ${I2.toFixed(1)} A.`);
+  const n=fp.length;
+  r.kind=n===1?'Single line-to-ground':n===2?(r.ground?'Double line-to-ground':'Line-to-line'):(r.ground?'Three-phase to ground':'Three-phase (balanced)');
+  r.type=r.phases.join('')+(r.ground?'G':'');
+  return r;
+}
+
+/* result view */
+const f1=x=>(+x).toFixed(1);
+function renderResult(app){
+  let r; try{r=analyse(S);}catch(e){view='wizard';step=0;render();return;}
+  const faulted=r.phases.length>0, cls=faulted?'ko':'ok';
+  const chips=r.phases.map(p=>`<span class="chip ${p}">${p}</span>`).join('')+(r.ground?'<span class="chip G">G</span>':'');
+  app.innerHTML=`<div class="verdict">
+    <div class="${cls}"><div class="k">Fault type</div><div class="v">${r.type}</div></div>
+    <div><div class="k">Class</div><div class="v" style="font-size:1rem">${r.kind}</div></div>
+    <div><div class="k">Phases</div><div class="chips" style="margin-top:6px">${chips||'<span class="muted">none</span>'}</div></div>
+    <div><div class="k">Earth involved</div><div class="v">${faulted?(r.ground?'Yes':'No'):'–'}</div></div></div>
+  <section class="panel"><div class="panel-head"><h2>Your inputs</h2></div><div class="table-wrap"><table class="tbl"><thead><tr><th></th><th class="num">|V| V</th><th class="num">∠V °</th><th class="num">V pu</th><th class="num">|I| A</th><th class="num">∠I °</th></tr></thead><tbody>
+  ${PH.map((p,i)=>`<tr><td>${p}</td><td class="num">${f1(S.V[i].m)}</td><td class="num">${S.V[i].a}</td><td class="num">${r.vpu[i].toFixed(2)}</td><td class="num">${f1(S.I[i].m)}</td><td class="num">${S.I[i].a}</td></tr>`).join('')}
+  ${[['3·I0',r.I0x3],['I1',r.I1],['I2',r.I2]].map(([n,v])=>`<tr><td>${n}</td><td></td><td></td><td></td><td class="num">${f1(v)}</td><td></td></tr>`).join('')}</tbody></table></div></section>
+  <section class="panel"><div class="panel-head"><h2>Why this result</h2></div><ul class="why">${r.why.map(w=>`<li>${w}</li>`).join('')}</ul></section>
+  <section class="panel"><div class="panel-head"><h2>Phasor diagrams</h2></div><div class="diag"><div><div class="legend-note">Voltage</div><canvas class="sq" id="dv" aria-label="Voltage phasors"></canvas></div><div><div class="legend-note">Current</div><canvas class="sq" id="di" aria-label="Current phasors"></canvas></div></div></section>
+  <div class="btn-row"><button class="btn ghost" id="edit">Edit inputs</button><button class="btn" id="again">Start over</button><a class="btn ghost" href="lab.html#simulate" style="text-decoration:none">Open simulation lab</a></div>`;
+  phasorPlot($('#dv'),S.V); phasorPlot($('#di'),S.I);
+  $('#edit').onclick=()=>{view='wizard';step=0;render();};
+  $('#again').onclick=()=>{S=blank();view='wizard';step=0;render();};
+  scrollTo(0,0);
+}
+function phasorPlot(cv,P){
+  const dpr=devicePixelRatio||1,w=cv.clientWidth; cv.width=cv.height=w*dpr;
+  const g=cv.getContext('2d'); g.scale(dpr,dpr); const cs=getComputedStyle(document.documentElement), c=w/2, R=c-14;
+  const mx=Math.max(...P.map(p=>+p.m))||1;
+  g.strokeStyle=cs.getPropertyValue('--border'); g.lineWidth=1;
+  [1,.5].forEach(f=>{g.beginPath();g.arc(c,c,R*f,0,7);g.stroke();});
+  g.beginPath();g.moveTo(c-R,c);g.lineTo(c+R,c);g.moveTo(c,c-R);g.lineTo(c,c+R);g.stroke();
+  P.forEach((p,i)=>{const a=+p.a*Math.PI/180,L=+p.m/mx*R,x=c+L*Math.cos(a),y=c-L*Math.sin(a),col=cs.getPropertyValue(CV[i]).trim();
+    g.strokeStyle=g.fillStyle=col;g.lineWidth=2.5;g.beginPath();g.moveTo(c,c);g.lineTo(x,y);g.stroke();
+    g.beginPath();g.arc(x,y,4,0,7);g.fill();g.font='bold 12px IBM Plex Mono, monospace';g.fillText(PH[i],x+(x>c?7:-16),y+(y>c?14:-6));});
+}
+
+/* examples */
+const TYPES=['AG','BG','CG','AB','BC','CA','ABG','BCG','CAG','ABC','ABCG'];
+function example(type){
+  const ph=[...type].filter(c=>c!=='G').map(c=>'ABC'.indexOf(c)), hasG=type.includes('G'), r=Math.SQRT2;
+  const sag=ph.length===1?.25:ph.length===2?.45:.1;
+  const A=ph.length===1?[2200]:ph.length===2?[3000,3000]:(hasG?[3500,3000,2500]:[3500,3500,3500]);
+  S=blank(); S.Vref='6351';S.Iload='70.7';
+  const wrap=a=>{a=((a+180)%360+360)%360-180;return String(Math.round(a))};
+  for(let p=0;p<3;p++){
+    const fi=ph.indexOf(p), sh=-120*p;
+    S.V[p]={m:(6351*(fi>=0?sag:1)).toFixed(0),a:wrap(sh)};
+    S.I[p]=fi>=0?{m:(A[fi]/r).toFixed(0),a:wrap(-75+sh)}:{m:'70.7',a:wrap(-20+sh)};
+  }
+  if(ph.length===2&&!hasG)S.I[ph[1]]={m:S.I[ph[0]].m,a:wrap(+S.I[ph[0]].a+180)};
+}
+
+/* theme toggle */
+(()=>{const b=$('#themeBtn'),root=document.documentElement;
+ try{const t=localStorage.getItem('theme');if(t)root.dataset.theme=t;}catch(e){}
+ b.onclick=()=>{const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
+  root.dataset.theme=dark?'light':'dark';try{localStorage.setItem('theme',root.dataset.theme);}catch(e){} if(view==='result')render();};})();
+render();
 </script>
-</body></html>
+</body>
+</html>
